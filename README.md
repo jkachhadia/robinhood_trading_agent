@@ -156,7 +156,8 @@ claude --remote-control "Trading autopilot"    # start the session so your phone
 manage and execute while open, manage only after the 15:30 ET cutoff, daily review after the close, weekly
 review on the last trading day of the week, nothing on weekends and holidays. Steps done today are recorded
 so nothing repeats. `/autopilot` runs `tradeagent doctor` first and refuses to start if the path case, venv, hooks, agents or
-trust are wrong. `/kill` blocks orders instantly. Keep the Mac awake (`caffeinate -i`); sleep pauses the
+trust are wrong. The loop is a session cron (weekdays 08:03 to 16:33 local time, every 30 min); Claude Code
+expires session crons after 7 days, so the weekly review recreates it. `/kill` blocks orders instantly. Keep the Mac awake (`caffeinate -i`); sleep pauses the
 loop, wake resumes it.
 
 **From your phone** (Claude app, Remote Control): the live session, every tool call, messages you send

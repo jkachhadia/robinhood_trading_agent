@@ -1,7 +1,6 @@
 ---
 name: cycle
 description: One hands-free autopilot tick - manage and execute in this session, and delegate scan/analyze/review to a forked research context so the session stays small for weeks. Meant to be run on a loop (/autopilot).
-disable-model-invocation: true
 allowed-tools: Bash(./bin/tradeagent *) Bash(uv run tradeagent *) Write(proposals/**)
 ---
 
@@ -38,7 +37,10 @@ Read `phase`, `done_today`, `free_slots`, `trades_today`, `halted`, `kill_switch
 - **phase = after_close**:
   - if `review` not in `done_today`: invoke `cycle-research review`.
   - then, if `last_trading_day_of_week` is true and `review_week` not in `done_today`: invoke
-    `cycle-research review-week`.
+    `cycle-research review-week`, and **renew the loop**: use `CronList` to find the recurring `/cycle`
+    task, create an identical new one with `CronCreate` (same cron expression, recurring), then
+    `CronDelete` the old id. Claude Code expires recurring tasks after 7 days; this weekly renewal keeps
+    the autopilot alive indefinitely.
   - otherwise stop.
 
 Rules for this tick: the research skill runs in its own context and returns a summary; do not repeat its
