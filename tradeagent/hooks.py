@@ -4,7 +4,7 @@
 
 Reads the hook payload from stdin, writes the hook response to stdout.
 Events: pre-tool-use, post-tool-use, post-tool-use-failure, session-start,
-user-prompt-submit, stop.
+user-prompt-submit, pre-compact, stop.
 
 Fail-closed policy: if anything goes wrong while deciding on an order-placing
 tool, exit 2 with the error on stderr, which makes Claude Code block the call.
@@ -208,6 +208,24 @@ def user_prompt_submit(payload: dict) -> int:
         return 0
 
 
+def pre_compact(payload: dict) -> int:
+    """Snapshot the in-flight state to data/inflight.md before Claude Code compacts the conversation.
+    The DB is the source of truth; this file is for humans reading the logs, and the SessionStart hook
+    (which also fires after compaction) re-injects the same facts from the DB."""
+    try:
+        levers = load_levers()
+        store = Store()
+        lines = journal.inflight_lines(store, levers)
+        f = paths.data_dir() / "inflight.md"
+        f.write_text(f"# in-flight at compaction {datetime.now(timezone.utc).isoformat()} (session {payload.get('session_id')})\n"
+                     + "\n".join("- " + l for l in lines) + "\n")
+        _log(f"PRECOMPACT wrote {len(lines)} in-flight lines")
+        return 0
+    except Exception as e:
+        _log(f"PRECOMPACT EXCEPTION {e!r}")
+        return 0
+
+
 def stop(payload: dict) -> int:
     try:
         store = Store()
@@ -224,6 +242,7 @@ HANDLERS = {
     "post-tool-use-failure": post_tool_use_failure,
     "session-start": session_start,
     "user-prompt-submit": user_prompt_submit,
+    "pre-compact": pre_compact,
     "stop": stop,
 }
 

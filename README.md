@@ -45,6 +45,7 @@ equity field name is not in `tradeagent/fieldmap.py` yet; add it to `EQUITY_KEYS
 | `/review-day` | reconcile, P&L, post-mortems, lessons, `data/reviews/<date>.md` |
 | `/pending`, `/approve <id>`, `/reject <id>` | the approval queue |
 | `/mode approve_all\|tiered\|autonomous`, `/kill [off]` | autonomy and emergency stop |
+| `/review-week` | weekly playbook consolidation (also auto on the last trading day of the week) |
 | `/autopilot [30m]` | hands-free inside the session: runs `/cycle` now and every 30 min (`/cycle` picks scan / execute / manage / review from the clock) |
 
 Terminal equivalents: `uv run tradeagent status | pending | approve <id> | reject <id> | mode <m> | kill on|off |
@@ -101,6 +102,22 @@ in a headless one.
 manage + execute while open, manage only after the 15:30 cutoff, review after the close, nothing when closed.
 `/autopilot` runs it once and then on a 30-minute loop for as long as the session is open. `/kill` stops orders
 instantly. In `approve_all` mode the loop only proposes; approvals stay with you.
+
+## Long-running sessions: context and memory
+
+- **State is the journal, not the conversation.** Every prompt (and every SessionStart, including the one
+  Claude Code fires after a context compaction) gets a fresh state block: mode, P&L, positions, in-flight
+  proposals/orders, cycle steps done today, the playbook, and the latest lessons. Compaction cannot lose
+  anything the gate cares about. A `PreCompact` hook also writes `data/inflight.md` for the human log.
+- **Research runs in forked contexts.** `/cycle` keeps only manage + execute in the main session and
+  delegates scan/analyze/review to `/cycle-research` (a `context: fork` skill on the `researcher` agent),
+  so a tick adds a few thousand tokens to the session instead of tens of thousands. One `/autopilot`
+  session can run for weeks.
+- **Three memory tiers, all bounded:** `data/playbook.md` (≤ 40 lines, rewritten weekly by `/review-week`
+  from stats + lessons + reviews; injected every prompt), symbol notes in SQLite (`tradeagent note/notes`,
+  shown in `/analyze` and `/manage`), and the raw archive (`data/lessons.md`, `data/reviews/`, the DB).
+  On the last trading day of a month `/review-week` also drafts `data/reviews/levers-YYYY-MM.md` with
+  lever changes for you to apply; the model cannot edit `config/`, `CLAUDE.md`, skills, agents, or hooks.
 
 ## Scheduled runs
 

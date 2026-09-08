@@ -8,7 +8,7 @@ from typing import Optional
 from . import paths
 from .config import Levers
 from .db import Store
-from .journal import cashflows_today, expire_proposals, state_view
+from .journal import cashflows_today, expire_proposals, inflight_lines, state_view
 from .models import Proposal
 
 
@@ -97,8 +97,19 @@ def status_text(store: Store, levers: Levers, compact: bool = False) -> str:
     return "\n".join(lines)
 
 
+PLAYBOOK_MAX_LINES = 40
+
+
+def playbook_text() -> str:
+    pb = paths.data_dir() / "playbook.md"
+    if not pb.exists():
+        return ""
+    lines = [l.rstrip() for l in pb.read_text().splitlines() if l.strip()][:PLAYBOOK_MAX_LINES]
+    return "\n".join(lines)
+
+
 def context_text(store: Store, levers: Levers) -> str:
-    """What gets injected into Claude's context at session start / each prompt."""
+    """What gets injected into Claude's context at session start / each prompt / after compaction."""
     body = status_text(store, levers, compact=True)
     rules = (
         "Gate rules in force: every place_* call must match a proposal created with `uv run tradeagent propose`, "
@@ -110,10 +121,14 @@ def context_text(store: Store, levers: Levers) -> str:
             "autonomous": "orders within hard limits execute without approval.",
         }[levers.mode.value]
     )
+    inflight = inflight_lines(store, levers)
+    inflight_s = ("\nIn flight (from the journal; authoritative after any context compaction):\n" + "\n".join("- " + l for l in inflight)) if inflight else ""
+    pb = playbook_text()
+    pb_s = ("\nPlaybook (data/playbook.md, curated weekly):\n" + pb) if pb else ""
     lp = paths.lessons_path()
     lessons = ""
     if lp.exists():
-        tail = lp.read_text().strip().splitlines()[-8:]
+        tail = [t for t in lp.read_text().strip().splitlines() if t.startswith("- ")][-3:]
         if tail:
-            lessons = "\nRecent lessons (data/lessons.md):\n" + "\n".join("- " + t.lstrip("- ") for t in tail)
-    return f"<tradeagent-state>\n{body}\n{rules}{lessons}\n</tradeagent-state>"
+            lessons = "\nLatest lessons:\n" + "\n".join(tail)
+    return f"<tradeagent-state>\n{body}\n{rules}{inflight_s}{pb_s}{lessons}\n</tradeagent-state>"

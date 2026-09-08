@@ -26,7 +26,8 @@
       "Write(data/reviews/**)",
       "Edit(proposals/**)",
       "WebSearch",
-      "WebFetch"
+      "WebFetch",
+      "Write(data/playbook.md)"
     ],
     "deny": [
       "mcp__robinhood-trading__place_crypto_order",
@@ -42,7 +43,20 @@
       "Edit(.claude/hooks/**)",
       "Write(.claude/hooks/**)",
       "Edit(tradeagent/**)",
-      "Write(tradeagent/**)"
+      "Write(tradeagent/**)",
+      "Edit(CLAUDE.md)",
+      "Write(CLAUDE.md)",
+      "Edit(.claude/skills/**)",
+      "Write(.claude/skills/**)",
+      "Edit(.claude/agents/**)",
+      "Write(.claude/agents/**)",
+      "Edit(.mcp.json)",
+      "Write(.mcp.json)",
+      "Edit(scripts/**)",
+      "Write(scripts/**)",
+      "Edit(data/lessons.md)",
+      "Write(data/lessons.md)",
+      "Edit(data/playbook.md)"
     ]
   },
   "hooks": {
@@ -111,6 +125,17 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/tradeagent-hook.sh\" stop",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/tradeagent-hook.sh\" pre-compact",
             "timeout": 20
           }
         ]

@@ -32,9 +32,11 @@ allowed-tools: Bash(./bin/tradeagent *) Bash(uv run tradeagent *) Write(data/rev
    Grade the *process*, not the outcome: a good trade can lose.
 4. **Denials and friction**: list gate denials today and whether each was correct. If the gate blocked
    something that should have gone through, say which lever or parser to adjust (do not change it yourself).
-5. **Lessons**: at most 5, each a single specific sentence that would change a future decision. Record each with
+5. **Symbol notes**: durable per-name facts learned today go to `./bin/tradeagent note SYMBOL "..."`
+   (not into lessons).
+6. **Lessons**: at most 5, each a single specific sentence that would change a future decision. Record each with
    `./bin/tradeagent lesson "..."`. Skip generic advice.
-6. **Write** `data/reviews/<YYYY-MM-DD>.md` with sections: P&L, trades, post-mortems, denials, lessons,
+7. **Write** `data/reviews/<YYYY-MM-DD>.md` with sections: P&L, trades, post-mortems, denials, lessons,
    tomorrow's watch (positions near levels, catalysts, proposals still pending).
 
 ## Output

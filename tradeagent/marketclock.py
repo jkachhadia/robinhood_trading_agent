@@ -128,3 +128,21 @@ def next_open(at: datetime | None = None, extra_holidays: set[date] | None = Non
         d = d + timedelta(days=1)
         now = datetime.combine(d, time(0, 0), tzinfo=ET)
     raise RuntimeError("no trading day found within 10 days")
+
+
+def is_last_trading_day_of_week(d: date, extra_holidays: set[date] | None = None) -> bool:
+    n = d + timedelta(days=1)
+    while n.weekday() < 5:
+        if is_trading_day(n, extra_holidays):
+            return False
+        n += timedelta(days=1)
+    return is_trading_day(d, extra_holidays)
+
+
+def is_last_trading_day_of_month(d: date, extra_holidays: set[date] | None = None) -> bool:
+    n = d + timedelta(days=1)
+    while n.month == d.month:
+        if is_trading_day(n, extra_holidays):
+            return False
+        n += timedelta(days=1)
+    return is_trading_day(d, extra_holidays)

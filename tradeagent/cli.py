@@ -314,6 +314,7 @@ def plan():
         else:
             item["entry_proposal"] = None
             item["flags"] = ["NO_PLAN_ON_FILE"]
+        item["symbol_notes"] = [n["note"] for n in journal.notes_for(store, r["symbol"], 5)]
         out.append(item)
     print(json.dumps(out, indent=2, default=str))
 
@@ -384,6 +385,8 @@ def clock():
     td = mc.trading_date(now)
     extra = {date.fromisoformat(d) for d in levers.market.extra_holidays}
     trading = mc.is_trading_day(td, extra)
+    last_of_week = mc.is_last_trading_day_of_week(td, extra)
+    last_of_month = mc.is_last_trading_day_of_month(td, extra)
     phase = "closed"
     if trading:
         w = mc.session_window(td)
@@ -399,6 +402,7 @@ def clock():
     s = journal.state_view(store, levers)
     out = {
         "et_time": now.strftime("%Y-%m-%d %H:%M ET"), "trading_day": trading, "phase": phase,
+        "weekday": now.strftime("%A"), "last_trading_day_of_week": last_of_week, "last_trading_day_of_month": last_of_month,
         "no_new_positions_after": levers.session.no_new_positions_after,
         "done_today": done,
         "open_positions": len(s.open_positions()), "max_open_positions": levers.risk.max_open_positions,
@@ -428,6 +432,50 @@ def cashflow(amount: float = typer.Argument(..., help="+deposit / -withdrawal in
     journal.apply_cashflow(_store(), amount, source="manual", note=note)
     sign = "deposit" if amount > 0 else "withdrawal"
     rprint(f"recorded {sign} of ${abs(amount):,.2f}; day/week P&L baselines shifted")
+
+
+@app.command()
+def note(symbol: str, text: str, source: str = typer.Option("agent")):
+    """Record a durable fact about a symbol (behavior, liquidity quirks, past outcomes)."""
+    nid = journal.add_note(_store(), symbol, text, source)
+    print(f"note #{nid} recorded for {symbol.upper()}")
+
+
+@app.command()
+def notes(symbol: str, limit: int = 10):
+    """Show notes for a symbol (newest first)."""
+    rows = journal.notes_for(_store(), symbol, limit)
+    if not rows:
+        print(f"no notes for {symbol.upper()}")
+        return
+    for r in rows:
+        print(f"{r['ts'][:10]} [{r['source']}] {r['note']}")
+
+
+@app.command()
+def lessons(days: int = typer.Option(7, help="Only lessons from the last N days")):
+    """Print raw lessons from data/lessons.md within a window (input for /review-week)."""
+    from datetime import date, timedelta
+    lp = paths.lessons_path()
+    if not lp.exists():
+        print("no lessons yet")
+        return
+    cutoff = (date.today() - timedelta(days=days)).isoformat()
+    for line in lp.read_text().splitlines():
+        if line.startswith("- ") and line[2:12] >= cutoff:
+            print(line)
+
+
+@app.command()
+def reviews(days: int = typer.Option(7)):
+    """Print the daily review files from the last N days (input for /review-week)."""
+    from datetime import date, timedelta
+    d = paths.data_dir() / "reviews"
+    cutoff = (date.today() - timedelta(days=days)).isoformat()
+    for f in sorted(d.glob("*.md")):
+        if f.stem >= cutoff:
+            print(f"===== {f.name}")
+            print(f.read_text())
 
 
 @app.command()

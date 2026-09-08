@@ -169,6 +169,15 @@ CREATE TABLE IF NOT EXISTS cashflows (
     note TEXT
 );
 
+CREATE TABLE IF NOT EXISTS symbol_notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts TEXT NOT NULL,
+    symbol TEXT NOT NULL,
+    note TEXT NOT NULL,
+    source TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_symbol_notes ON symbol_notes(symbol, id);
+
 CREATE TABLE IF NOT EXISTS kv (
     key TEXT PRIMARY KEY,
     value TEXT,

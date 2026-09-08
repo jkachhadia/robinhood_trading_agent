@@ -492,3 +492,33 @@ def state_view(store: Store, levers: Levers, now: Optional[datetime] = None) -> 
         traded_symbols=traded, quotes=quotes, pnl_today=pnl_today, pnl_week=pnl_week,
         halted_reason=halted, simulated=levers.dry_run,
     )
+
+
+# ---- symbol notes ------------------------------------------------------------------
+
+def add_note(store: Store, symbol: str, note: str, source: str = "agent") -> int:
+    return store.insert("symbol_notes", {"ts": now_iso(), "symbol": symbol.strip().upper(), "note": note.strip(), "source": source})
+
+
+def notes_for(store: Store, symbol: str, limit: int = 10):
+    return store.all("SELECT * FROM symbol_notes WHERE symbol=? ORDER BY id DESC LIMIT ?", (symbol.strip().upper(), limit))
+
+
+# ---- in-flight summary (survives context compaction because it comes from the DB) ----
+
+def inflight_lines(store: Store, levers: Levers) -> list[str]:
+    out: list[str] = []
+    expire_proposals(store)
+    for r in store.all("SELECT id, status, symbol, side, instrument_key, max_qty FROM proposals "
+                       "WHERE status IN ('executing','approved','auto_eligible') ORDER BY id"):
+        mq = f" max_qty {float(r['max_qty']):g}" if r["max_qty"] is not None else ""
+        out.append(f"proposal #{r['id']} {r['status']}: {r['side']} {r['instrument_key']}{mq}")
+    td = mc.trading_date().isoformat()
+    sim = 1 if levers.dry_run else 0
+    for r in store.all("SELECT id, side, qty, instrument_key, status, broker_order_id FROM orders "
+                       "WHERE trading_date=? AND simulated=? ORDER BY id DESC LIMIT 8", (td, sim)):
+        out.append(f"order #{r['id']} {r['side']} {float(r['qty']):g} {r['instrument_key']} -> {r['status']} ({r['broker_order_id'] or 'no id'})")
+    done = store.kv_get(f"cycle:{td}", {}) or {}
+    if done:
+        out.append("cycle steps done today: " + ", ".join(sorted(done.keys())))
+    return out

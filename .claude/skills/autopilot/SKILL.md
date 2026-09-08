@@ -18,4 +18,6 @@ Interval: `$ARGUMENTS` (default `30m`).
 3. Run the `/cycle` procedure once now.
 4. Then start the loop by invoking the `loop` skill with arguments `<interval> /cycle` (for example
    `30m /cycle`). This schedules `/cycle` to re-run in this session at that interval.
-5. Tell the user how to stop: `/kill` blocks orders immediately; closing the session ends the loop.
+5. Tell the user how to stop, and that the loop is designed to run for weeks: research runs in forked
+   contexts, only summaries stay in this session, and the state block re-injects the journal after any
+   context compaction. Stop: `/kill` blocks orders immediately; closing the session ends the loop.

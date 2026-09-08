@@ -15,6 +15,12 @@ Arguments: `$ARGUMENTS` (first token is the symbol; optional `intraday` or `swin
 ./bin/tradeagent status --no-full
 ```
 
+## Notes on this symbol from past trades
+
+```!
+./bin/tradeagent notes $0
+```
+
 ## Levers that matter here
 
 ```!
@@ -82,6 +88,9 @@ For an option: `"instrument": "option"`, `"option": {"expiry": "2026-10-16", "st
 and `entry_price` / `stop_price` / `target_price` / `limit_price` are the premium per contract (the CLI
 multiplies by 100). Put open interest and spread % in `liquidity`. Tags can include `earnings_play` to
 override the earnings-window rule when the trade is deliberately about earnings.
+
+6. **Symbol notes**: if you learned a durable fact about how this name trades (liquidity, gap behavior,
+   spread at the open, reaction to its catalysts), record it: `./bin/tradeagent note <SYMBOL> "..."`.
 
 ## Output
 

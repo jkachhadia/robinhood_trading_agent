@@ -17,7 +17,7 @@ allowed-tools: Bash(./bin/tradeagent *) Bash(uv run tradeagent *) Write(proposal
    every equity position and `get_option_quotes` for every option position (the plan check below uses the
    quotes the gate has cached, so fetch them first). Also `get_equity_orders` and `get_option_orders`.
 2. **Plans**: run `./bin/tradeagent plan`. It prints each open position with its entry proposal's stop, target,
-   invalidation, time stop, hours open, and computed flags.
+   invalidation, time stop, hours open, computed flags, and any `symbol_notes` recorded for the name.
 3. **Decide per position**, in this order of precedence:
    - `AT_OR_BELOW_STOP` or `INVALIDATED` → full exit now.
    - `AT_OR_ABOVE_TARGET` → exit at least half; keep the rest only if the technical picture has improved (one

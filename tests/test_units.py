@@ -296,3 +296,42 @@ def test_option_position_without_strike_kept():
                                  "expiration_date": "2026-10-16", "option_id": "abc-123"}]}}
     rows = parse_positions(d, Instrument.option)
     assert len(rows) == 1 and rows[0].instrument_key == "SOFI:opt:abc-123" and rows[0].market_value == 3500.0
+
+
+# ---- long-session memory ------------------------------------------------------------------
+
+def test_symbol_notes_roundtrip(env, store):
+    from tradeagent import journal
+    journal.add_note(store, "nvda", "gaps on earnings; wide spread first 5 min")
+    rows = journal.notes_for(store, "NVDA")
+    assert len(rows) == 1 and "gaps" in rows[0]["note"]
+
+
+def test_context_includes_inflight_and_playbook(env, store):
+    from tradeagent import journal, paths
+    from tradeagent.models import Proposal, ProposalStatus
+    from tradeagent.report import context_text
+    lv = levers(env)
+    p = Proposal.model_validate(proposal_dict())
+    pid, st, _, _ = journal.create_proposal(store, lv, p)
+    journal.set_proposal_status(store, pid, ProposalStatus.approved, approval_source="cli")
+    (paths.data_dir() / "playbook.md").write_text("# Playbook\n" + "\n".join(f"- rule {i}" for i in range(60)))
+    ctx = context_text(store, lv)
+    assert f"proposal #{pid} approved" in ctx
+    assert "rule 38" in ctx and "rule 45" not in ctx   # bounded to 40 lines
+
+
+def test_week_month_boundaries():
+    from datetime import date
+    assert mc.is_last_trading_day_of_week(date(2026, 9, 11))      # Friday
+    assert not mc.is_last_trading_day_of_week(date(2026, 9, 10))
+    assert not mc.is_last_trading_day_of_week(date(2026, 11, 25))  # Thu is a holiday but Fri 27 (early close) still trades
+    assert mc.is_last_trading_day_of_week(date(2026, 11, 27))
+    assert mc.is_last_trading_day_of_month(date(2026, 9, 30))
+    assert not mc.is_last_trading_day_of_month(date(2026, 9, 29))
+
+
+def test_pre_compact_hook_writes_inflight(env):
+    r = _run_hook("pre-compact", {"session_id": "s"}, {})
+    assert r.returncode == 0
+    assert (env / "data" / "inflight.md").exists()
