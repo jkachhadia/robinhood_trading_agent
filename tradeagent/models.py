@@ -182,6 +182,7 @@ class ParsedOrder(BaseModel):
     limit_price: Optional[float] = None
     stop_price: Optional[float] = None
     option: Optional[OptionLeg] = None
+    dollar_amount: Optional[float] = None   # set when the order was expressed in dollars
     raw_keys: list[str] = Field(default_factory=list)
 
     @property

@@ -14,6 +14,7 @@ class ParsedSnapshot:
     equity: Optional[float]
     buying_power: Optional[float]
     cash: Optional[float]
+    pending_deposits: Optional[float] = None
 
 
 @dataclass
@@ -50,6 +51,7 @@ def parse_snapshot(decoded: Any) -> ParsedSnapshot:
         equity=fm.find_number(decoded, fm.EQUITY_KEYS_LIST),
         buying_power=fm.find_number(decoded, fm.BUYING_POWER_KEYS),
         cash=fm.find_number(decoded, fm.CASH_KEYS),
+        pending_deposits=fm.find_number(decoded, fm.PENDING_DEPOSIT_KEYS),
     )
 
 
@@ -71,20 +73,30 @@ def parse_positions(decoded: Any, instrument: Instrument) -> list[ParsedPosition
         key = symbol
         if instrument == Instrument.option:
             leg = _option_leg_from_row(row)
-            if leg is None:
-                continue
-            key = f"{symbol}:{leg.key()}"
+            if leg is not None:
+                key = f"{symbol}:{leg.key()}"
+            else:
+                # Robinhood option positions carry option_id + expiration but no strike; keep them under a
+                # fallback key so exposure and exit checks still see them.
+                oid = fm._first(row, fm.OPTION_ID_KEYS)
+                if oid is None:
+                    continue
+                key = f"{symbol}:opt:{oid}"
         if key in seen:
             continue
         seen.add(key)
+        avg = fm._to_float(fm._first(row, fm.AVG_COST_KEYS))
+        mv = fm._to_float(fm._first(row, fm.MKT_VALUE_KEYS))
+        if mv is None and avg is not None and instrument == Instrument.option:
+            mv = avg * qty * 100
         out.append(
             ParsedPosition(
                 symbol=symbol,
                 instrument=instrument,
                 instrument_key=key,
                 qty=qty,
-                avg_cost=fm._to_float(fm._first(row, fm.AVG_COST_KEYS)),
-                market_value=fm._to_float(fm._first(row, fm.MKT_VALUE_KEYS)),
+                avg_cost=avg,
+                market_value=mv,
                 raw=row,
             )
         )

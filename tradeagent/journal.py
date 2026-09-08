@@ -53,18 +53,73 @@ def record_decision(store: Store, levers: Levers, session_id: Optional[str], hea
 
 # ---- snapshots / positions / quotes -------------------------------------------
 
+CASHFLOW_MIN_ABS = 20.0        # ignore cash/equity co-movements smaller than this
+CASHFLOW_MIN_PCT = 0.05        # ...or smaller than 5% of equity
+CASHFLOW_MATCH_TOL = 0.10      # |Δequity - Δcash| must be within 10% of |Δcash| (or $5)
+
+
 def record_snapshot(store: Store, session_id: Optional[str], kind: str, decoded: Any, now: Optional[datetime] = None) -> dict:
     snap = parse_snapshot(decoded)
     ts = _utc(now)
+    ts_iso = ts.replace(microsecond=0).isoformat().replace("+00:00", "Z")
     tdate = mc.trading_date(ts).isoformat()
+    detected = None
+    if snap.equity is not None and snap.cash is not None:
+        detected = _detect_cashflow(store, snap.equity, snap.cash, ts, tdate)
     store.insert("snapshots", {
-        "ts": ts.replace(microsecond=0).isoformat().replace("+00:00", "Z"), "trading_date": tdate,
+        "ts": ts_iso, "trading_date": tdate,
         "session_id": session_id, "kind": kind, "equity": snap.equity, "buying_power": snap.buying_power,
-        "cash": snap.cash, "payload": dumps(decoded),
+        "cash": snap.cash, "pending_deposits": snap.pending_deposits, "payload": dumps(decoded),
     })
     if snap.equity is not None:
         ensure_daily(store, tdate, snap.equity, ts)
-    return {"equity": snap.equity, "buying_power": snap.buying_power, "cash": snap.cash}
+    return {"equity": snap.equity, "buying_power": snap.buying_power, "cash": snap.cash,
+            "pending_deposits": snap.pending_deposits, "cashflow_detected": detected}
+
+
+def _detect_cashflow(store: Store, equity: float, cash: float, ts: datetime, tdate: str) -> Optional[float]:
+    """A deposit/withdrawal moves cash and equity by the same amount with no fills in between.
+    A trade moves cash but not equity; a price move moves equity but not cash."""
+    prev = store.one("SELECT ts, equity, cash FROM snapshots WHERE equity IS NOT NULL AND cash IS NOT NULL ORDER BY id DESC LIMIT 1")
+    if prev is None:
+        return None
+    d_eq = equity - float(prev["equity"])
+    d_cash = cash - float(prev["cash"])
+    threshold = max(CASHFLOW_MIN_ABS, CASHFLOW_MIN_PCT * float(prev["equity"]))
+    if abs(d_cash) < threshold:
+        return None
+    if abs(d_eq - d_cash) > max(5.0, CASHFLOW_MATCH_TOL * abs(d_cash)):
+        return None
+    fills = store.one("SELECT COUNT(*) AS n FROM orders WHERE simulated=0 AND status IN ('placed','filled') AND ts > ? AND ts <= ?",
+                      (prev["ts"], ts.replace(microsecond=0).isoformat().replace("+00:00", "Z")))["n"]
+    if fills:
+        return None
+    apply_cashflow(store, d_cash, source="auto", note=f"equity {prev['equity']}->{equity}, cash {prev['cash']}->{cash}", ts=ts)
+    return d_cash
+
+
+def apply_cashflow(store: Store, amount: float, source: str = "manual", note: Optional[str] = None,
+                   ts: Optional[datetime] = None) -> None:
+    """Shift today's and this week's P&L baselines so a deposit/withdrawal is not read as P&L."""
+    ts = _utc(ts)
+    tdate = mc.trading_date(ts).isoformat()
+    wk = mc.week_start(mc.trading_date(ts)).isoformat()
+    store.insert("cashflows", {"ts": ts.replace(microsecond=0).isoformat().replace("+00:00", "Z"), "trading_date": tdate,
+                               "amount": amount, "source": source, "note": note})
+    row = store.one("SELECT day_open_equity FROM daily WHERE trading_date=?", (tdate,))
+    if row is not None and row["day_open_equity"] is not None:
+        store.conn.execute("UPDATE daily SET day_open_equity=day_open_equity+?, updated_at=? WHERE trading_date=?",
+                           (amount, now_iso(), tdate))
+    wo = store.kv_get(f"week_open:{wk}")
+    if wo is not None:
+        store.kv_set(f"week_open:{wk}", float(wo) + amount)
+    store.conn.execute("UPDATE daily SET week_open_equity=week_open_equity+? WHERE trading_date=? AND week_open_equity IS NOT NULL",
+                       (amount, tdate))
+
+
+def cashflows_today(store: Store, tdate: Optional[str] = None) -> list:
+    tdate = tdate or mc.trading_date().isoformat()
+    return store.all("SELECT * FROM cashflows WHERE trading_date=? ORDER BY id", (tdate,))
 
 
 def ensure_daily(store: Store, tdate: str, equity: float, ts: datetime) -> None:

@@ -53,7 +53,7 @@ def instrument_for_tool(short: str) -> Instrument:
 
 SYMBOL_KEYS = ("symbol", "ticker", "instrument_symbol", "underlying_symbol", "underlying", "chain_symbol", "asset_code")
 SIDE_KEYS = ("side", "direction", "order_side", "action", "transaction_type")
-QTY_KEYS = ("quantity", "qty", "shares", "contracts", "amount", "units", "num_shares", "num_contracts")
+QTY_KEYS = ("quantity", "qty", "shares", "contracts", "units", "num_shares", "num_contracts")
 ORDER_TYPE_KEYS = ("order_type", "type", "orderType", "kind")
 LIMIT_KEYS = ("limit_price", "price", "limitPrice", "limit")
 STOP_KEYS = ("stop_price", "stopPrice", "stop", "trigger_price")
@@ -63,8 +63,12 @@ OPTION_TYPE_KEYS = ("option_type", "contract_type", "right", "put_call", "option
 NESTED_ORDER_KEYS = ("order", "order_request", "request", "params", "input")
 LEG_KEYS = ("legs", "leg", "instruments")
 
-EQUITY_KEYS_LIST = ("equity", "total_equity", "portfolio_value", "portfolio_equity", "account_value",
-                    "net_liquidation", "total_value", "market_value", "extended_hours_equity", "equity_value")
+# Robinhood get_portfolio: total_value is the whole account; equity_value is stocks only (never use it as equity).
+EQUITY_KEYS_LIST = ("total_value", "total_equity", "portfolio_value", "equity", "account_value",
+                    "net_liquidation", "portfolio_equity", "extended_hours_equity")
+PENDING_DEPOSIT_KEYS = ("pending_deposits", "pending_deposit")
+DOLLAR_KEYS = ("dollar_based_amount", "amount_in_dollars", "dollar_amount", "notional")
+OPTION_ID_KEYS = ("option_id", "option_instrument_id", "instrument_id")
 BUYING_POWER_KEYS = ("buying_power", "buyingPower", "cash_available_for_trading", "available_to_trade", "cash_available")
 CASH_KEYS = ("cash", "cash_balance", "uninvested_cash", "cash_held")
 PRICE_KEYS = ("last_trade_price", "last_price", "price", "mark_price", "mark", "last", "adjusted_mark_price")
@@ -191,6 +195,13 @@ def parse_order(tool_name: str, short: str, tool_input: dict) -> ParsedOrder:
     symbol = _first(flat, SYMBOL_KEYS)
     side = parse_side(_first(flat, SIDE_KEYS))
     qty = _to_float(_first(flat, QTY_KEYS))
+    dollar_amount = _to_float(_first(flat, DOLLAR_KEYS))
+    limit_for_dollars = _to_float(_first(flat, LIMIT_KEYS))
+    if qty is None and dollar_amount is not None:
+        if limit_for_dollars is None or limit_for_dollars <= 0:
+            raise ValueError("dollar-based order without a limit price cannot be sized by the gate; "
+                             "use a share quantity, or a dollar amount with a limit price")
+        qty = round(dollar_amount / limit_for_dollars, 6)
     missing = [n for n, v in (("symbol", symbol), ("side", side), ("quantity", qty)) if v is None]
     if missing:
         raise ValueError(
@@ -231,6 +242,7 @@ def parse_order(tool_name: str, short: str, tool_input: dict) -> ParsedOrder:
         limit_price=limit_price,
         stop_price=stop_price,
         option=option,
+        dollar_amount=dollar_amount,
         raw_keys=sorted(str(k) for k in flat.keys()),
     )
 

@@ -29,6 +29,19 @@ P&L, limits headroom, positions, and queued proposals. Read it before acting.
 10. **Ambiguity → stop.** If a tool response is unclear (unknown fields, possible rejection, partial fill),
     verify with `get_*_orders` before doing anything else.
 
+## Account and order conventions (from Robinhood's real responses)
+
+- `get_accounts` lists several accounts; exactly one has `agentic_allowed: true`. Use that `account_number`
+  for every account-scoped call (`get_portfolio`, positions, orders, reviews, placements). Never trade or
+  report on the others. Do not print full account numbers; mask all but the last 4 digits.
+- `get_portfolio.total_value` is the account value; `equity_value` is the stock sleeve only. `cash` and
+  `pending_deposits` are what the gate uses to tell deposits from P&L.
+- Express orders as a share `quantity` (fractional allowed, e.g. `1.3333`) with a limit price. Dollar-based
+  orders (`dollar_based_amount`) are only sized by the gate when a limit price is present.
+- Option positions come back with `option_id` and `expiration_date` but no strike; call
+  `get_option_instruments` with the id when you need the leg. If the agentic account's `option_level` is
+  empty, options are not enabled on it: call `get_option_level_upgrade_info` and tell the user.
+
 ## Workflow (skills)
 
 `/status` · `/scan [intraday]` · `/analyze TICKER [option]` · `/propose <file>` · `/execute` · `/manage` ·

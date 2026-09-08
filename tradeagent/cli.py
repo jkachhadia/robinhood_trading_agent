@@ -422,6 +422,15 @@ def mark(event: str = typer.Argument(..., help="scan | scan_intraday | review | 
 
 
 @app.command()
+def cashflow(amount: float = typer.Argument(..., help="+deposit / -withdrawal in dollars"),
+             note: Optional[str] = typer.Option(None)):
+    """Record a deposit or withdrawal the detector missed, so it is not counted as P&L."""
+    journal.apply_cashflow(_store(), amount, source="manual", note=note)
+    sign = "deposit" if amount > 0 else "withdrawal"
+    rprint(f"recorded {sign} of ${abs(amount):,.2f}; day/week P&L baselines shifted")
+
+
+@app.command()
 def hook(event: str):
     """Hook entrypoint (used by .claude/settings.json). Reads Claude Code's JSON from stdin."""
     from .hooks import main

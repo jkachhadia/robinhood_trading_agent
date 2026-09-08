@@ -8,7 +8,7 @@ from typing import Optional
 from . import paths
 from .config import Levers
 from .db import Store
-from .journal import expire_proposals, state_view
+from .journal import cashflows_today, expire_proposals, state_view
 from .models import Proposal
 
 
@@ -62,6 +62,14 @@ def status_text(store: Store, levers: Levers, compact: bool = False) -> str:
     )
     if s.halted_reason:
         lines.append(f"HALTED: {s.halted_reason}")
+    cf = cashflows_today(store)
+    last = store.one("SELECT pending_deposits FROM snapshots WHERE equity IS NOT NULL ORDER BY id DESC LIMIT 1")
+    pend = float(last["pending_deposits"]) if last and last["pending_deposits"] else 0.0
+    if cf or pend:
+        parts = [f"{float(r['amount']):+,.2f} ({r['source']})" for r in cf]
+        if pend:
+            parts.append(f"pending deposits ${pend:,.2f} (not yet in equity)")
+        lines.append("cash flows today: " + "; ".join(parts) + " — P&L baselines adjusted")
     pos = s.open_positions()
     if pos:
         lines.append("positions:")

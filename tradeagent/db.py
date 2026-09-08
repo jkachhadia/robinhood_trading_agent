@@ -160,6 +160,15 @@ CREATE TABLE IF NOT EXISTS daily (
     updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS cashflows (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts TEXT NOT NULL,
+    trading_date TEXT NOT NULL,
+    amount REAL NOT NULL,
+    source TEXT NOT NULL,
+    note TEXT
+);
+
 CREATE TABLE IF NOT EXISTS kv (
     key TEXT PRIMARY KEY,
     value TEXT,
@@ -185,6 +194,12 @@ class Store:
         self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.execute("PRAGMA busy_timeout=10000")
         self.conn.executescript(SCHEMA)
+        self._migrate()
+
+    def _migrate(self) -> None:
+        cols = {r["name"] for r in self.conn.execute("PRAGMA table_info(snapshots)")}
+        if "pending_deposits" not in cols:
+            self.conn.execute("ALTER TABLE snapshots ADD COLUMN pending_deposits REAL")
 
     def close(self) -> None:
         self.conn.close()
