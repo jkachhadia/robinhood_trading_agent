@@ -109,10 +109,32 @@ def test_response_error_detection():
 # ---- sizing ------------------------------------------------------------------------------
 
 def test_sizing_equity_binding_notional(env):
-    lv = levers(env)
+    lv = levers(env, **{"risk.fractional_shares": False})
     p = Proposal.model_validate(proposal_dict())
     r = size_entry(lv, p, equity=10000)
     assert r.max_qty == 3 and r.binding == "max_order_notional"
+
+
+def test_sizing_fractional(env):
+    lv = levers(env)  # fractional on by default
+    p = Proposal.model_validate(proposal_dict())
+    r = size_entry(lv, p, equity=10000)
+    assert r.max_qty == 3.3333 and r.binding == "max_order_notional"
+    # expensive stock on a tiny account still gets a fraction
+    p2 = Proposal.model_validate(proposal_dict(limit_price=1000.0, entry_price=1000.0, stop_price=970.0, target_price=1090.0))
+    r2 = size_entry(lv, p2, equity=500)
+    assert 0 < r2.max_qty < 1
+    # below Robinhood's $1 minimum -> 0
+    r3 = size_entry(lv, p2, equity=5)  # 10% position cap = $0.50 < $1 minimum
+    assert r3.max_qty == 0 and r3.binding == "min_order_notional"
+
+
+def test_options_never_fractional(env):
+    lv = levers(env, **{"risk.risk_per_trade_pct": 2.0})
+    p = Proposal.model_validate(proposal_dict(instrument="option", option={"expiry": "2026-10-16", "strike": 150, "option_type": "call"},
+                                              limit_price=2.5, entry_price=2.5, stop_price=1.5, target_price=5.0))
+    r = size_entry(lv, p, equity=10000)
+    assert r.max_qty == 1 and isinstance(r.max_qty, int)
 
 
 def test_sizing_risk_binding(env):
@@ -123,7 +145,7 @@ def test_sizing_risk_binding(env):
 
 
 def test_sizing_respects_existing_exposure(env):
-    lv = levers(env, **{"risk.max_order_notional_usd": 100000})
+    lv = levers(env, **{"risk.max_order_notional_usd": 100000, "risk.fractional_shares": False})
     p = Proposal.model_validate(proposal_dict())
     r = size_entry(lv, p, equity=10000, existing_symbol_value=900)  # room 100 -> 0 shares
     assert r.max_qty == 0 and r.binding == "max_position_pct"

@@ -30,7 +30,8 @@ loss-limit breach, stop and report.
    a. Fetch a fresh quote (`get_equity_quotes` or `get_option_quotes` for the exact leg).
    b. If the ask (for buys) is more than `session.limit_price_tolerance_pct` above the proposal's limit,
       **skip** it and report "price moved"; do not chase, do not edit the proposal.
-   c. Quantity = the proposal's `max_qty` unless you have a reason to go smaller (say why). Never larger.
+   c. Quantity = the proposal's `max_qty` (may be fractional for equities, e.g. `1.3333`; pass it exactly) unless
+      you have a reason to go smaller (say why). Never larger.
    d. Call `review_equity_order` / `review_option_order` with the exact parameters you will place: symbol,
       side, quantity, order type `limit`, limit price = proposal limit, and the option leg if any. Read the
       review response for estimated cost, fees, warnings, or rejection reasons. If it warns about buying

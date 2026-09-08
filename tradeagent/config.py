@@ -41,6 +41,9 @@ class RiskLevers(BaseModel):
     max_trades_per_day: int = 6
     cooldown_minutes_same_symbol: int = 60
     equity_floor_usd: float = 0
+    fractional_shares: bool = True       # size equities in fractional shares (options are always whole contracts)
+    fractional_decimals: int = 4         # Robinhood accepts up to 6; 4 keeps orders readable
+    min_order_notional_usd: float = 1.0  # Robinhood's minimum for fractional orders
 
 
 class TieredLevers(BaseModel):
@@ -185,6 +188,9 @@ risk:
   max_trades_per_day: 6          # opening orders per trading day
   cooldown_minutes_same_symbol: 60
   equity_floor_usd: 0            # halt all entries if equity drops below (0 = off)
+  fractional_shares: true        # size equities in fractional shares (options are always whole contracts)
+  fractional_decimals: 4         # decimals of a share; Robinhood accepts up to 6
+  min_order_notional_usd: 1      # Robinhood's minimum order size for fractional shares
 
 tiered:                          # only consulted when mode == tiered
   auto_max_notional_usd: 200

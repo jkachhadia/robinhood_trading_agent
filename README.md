@@ -20,7 +20,7 @@ first" is just an instruction to the agent). This repo is where those controls l
 # 1. Python side (uv: https://docs.astral.sh/uv/)
 uv sync
 uv run tradeagent init            # writes config/levers.yaml (defaults: approve_all + dry_run ON) and data/tradeagent.db
-uv run pytest                     # 49 tests
+uv run pytest                     # 51 tests
 
 # 2. Claude Code side (run from this folder, interactively, on a desktop)
 claude                            # accept workspace trust; approve the project MCP server when asked
@@ -57,7 +57,8 @@ kill_switch: false       # uv run tradeagent kill on|off
 dry_run: true            # paper mode: the gate denies the order and journals a simulated fill instead
 risk:      max_order_notional_usd, max_position_pct, max_open_positions, max_daily_loss_pct,
            max_weekly_loss_pct, risk_per_trade_pct, min_reward_risk, max_trades_per_day,
-           cooldown_minutes_same_symbol, equity_floor_usd
+           cooldown_minutes_same_symbol, equity_floor_usd, fractional_shares, fractional_decimals,
+           min_order_notional_usd
 tiered:    auto_max_notional_usd, auto_min_confidence, new_symbol_requires_approval,
            options_require_approval, exits_auto_allowed
 universe:  allowlist, blocklist, min_price, min_avg_dollar_volume, exclude_earnings_within_days

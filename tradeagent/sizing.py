@@ -11,7 +11,7 @@ from .models import Instrument, Proposal
 
 @dataclass
 class SizingResult:
-    max_qty: int
+    max_qty: float
     binding: str
     max_notional: float
     details: dict = field(default_factory=dict)
@@ -21,10 +21,12 @@ class SizingResult:
         return f"max_qty={self.max_qty} (binding: {self.binding}); " + ", ".join(parts)
 
 
-def _floor(x: float) -> int:
+def _floor(x: float, decimals: int = 0) -> float:
     if x is None or x <= 0 or math.isinf(x) or math.isnan(x):
         return 0
-    return int(math.floor(x + 1e-9))
+    scale = 10 ** decimals
+    v = math.floor(x * scale + 1e-9) / scale
+    return int(v) if decimals == 0 else v
 
 
 def size_entry(
@@ -38,7 +40,9 @@ def size_entry(
     """Max quantity for an opening trade given every cap that applies."""
     r = levers.risk
     unit_cost = p.entry_price * p.multiplier
-    caps: dict[str, int] = {}
+    caps: dict[str, float] = {}
+    dec = r.fractional_decimals if (r.fractional_shares and p.instrument == Instrument.equity) else 0
+    fl = lambda x: _floor(x, dec)  # noqa: E731
 
     # 1. risk per trade from stop distance (or full premium for options without a stop)
     risk_budget = equity * r.risk_per_trade_pct / 100.0
@@ -49,18 +53,18 @@ def size_entry(
     else:
         risk_per_unit = None
     if risk_per_unit:
-        caps["risk_per_trade"] = _floor(risk_budget / risk_per_unit)
+        caps["risk_per_trade"] = fl(risk_budget / risk_per_unit)
 
     # 2. per-order notional
-    caps["max_order_notional"] = _floor(r.max_order_notional_usd / unit_cost)
+    caps["max_order_notional"] = fl(r.max_order_notional_usd / unit_cost)
 
     # 3. per-symbol exposure
     room = equity * r.max_position_pct / 100.0 - existing_symbol_value
-    caps["max_position_pct"] = _floor(room / unit_cost)
+    caps["max_position_pct"] = fl(room / unit_cost)
 
     # 4. buying power (if known)
     if buying_power is not None:
-        caps["buying_power"] = _floor(buying_power / unit_cost)
+        caps["buying_power"] = fl(buying_power / unit_cost)
 
     # 5. options-specific
     if p.instrument == Instrument.option:
@@ -72,10 +76,12 @@ def size_entry(
 
     # 6. what the model asked for
     if p.requested_qty is not None:
-        caps["requested_qty"] = max(int(p.requested_qty), 0)
+        caps["requested_qty"] = max(fl(float(p.requested_qty)), 0)
 
     binding = min(caps, key=lambda k: caps[k])
     max_qty = caps[binding]
+    if max_qty * unit_cost < r.min_order_notional_usd:
+        max_qty, binding = 0, (binding if max_qty == 0 else "min_order_notional")
     return SizingResult(
         max_qty=max_qty,
         binding=binding,

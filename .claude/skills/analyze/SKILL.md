@@ -75,6 +75,9 @@ Arguments: `$ARGUMENTS` (first token is the symbol; optional `intraday` or `swin
 }
 ```
 
+Equities are sized in fractional shares when `risk.fractional_shares` is on: pass `max_qty` exactly as printed
+(e.g. `1.3333`) as the quantity in both `review_*` and `place_*`. Options are always whole contracts.
+
 For an option: `"instrument": "option"`, `"option": {"expiry": "2026-10-16", "strike": 150, "option_type": "call"}`,
 and `entry_price` / `stop_price` / `target_price` / `limit_price` are the premium per contract (the CLI
 multiplies by 100). Put open interest and spread % in `liquidity`. Tags can include `earnings_play` to

@@ -175,8 +175,8 @@ def test_autonomous_allows_within_limits(env, store):
 def test_qty_above_sized_max_denied(env, store):
     lv = levers(env, mode="autonomous")
     pid, st, reasons, sizing = propose(store, lv)
-    assert sizing.max_qty == 3  # min(risk 10000*0.5%/5=10, notional 500/150=3, position 1000/150=6)
-    order = equity_order(qty=4)
+    assert sizing.max_qty == 3.3333  # min(risk 10000*0.5%/5=10, notional 500/150=3.33, position 1000/150=6.67)
+    order = equity_order(qty=3.4)
     record_review(store, order)
     d = evaluate(lv, store, hook_input("place_equity_order", order), headless=True, now=OPEN_NOW)
     assert d.action.value == "deny" and d.rule == "proposal"  # no proposal matches an oversized order

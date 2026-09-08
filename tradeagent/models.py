@@ -96,7 +96,7 @@ class Proposal(BaseModel):
     confidence: float = Field(ge=0, le=1)
     tags: list[str] = Field(default_factory=list)
     evidence: list[str] = Field(default_factory=list)
-    requested_qty: Optional[int] = None
+    requested_qty: Optional[float] = None
     notes: Optional[str] = None
 
     @field_validator("symbol")
