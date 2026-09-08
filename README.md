@@ -45,6 +45,7 @@ equity field name is not in `tradeagent/fieldmap.py` yet; add it to `EQUITY_KEYS
 | `/review-day` | reconcile, P&L, post-mortems, lessons, `data/reviews/<date>.md` |
 | `/pending`, `/approve <id>`, `/reject <id>` | the approval queue |
 | `/mode approve_all\|tiered\|autonomous`, `/kill [off]` | autonomy and emergency stop |
+| `/autopilot [30m]` | hands-free inside the session: runs `/cycle` now and every 30 min (`/cycle` picks scan / execute / manage / review from the clock) |
 
 Terminal equivalents: `uv run tradeagent status | pending | approve <id> | reject <id> | mode <m> | kill on|off |
 dry-run on|off | orders | decisions | positions | plan | stats | inspect <tool> | show <id> | reset <id> | halt`.
@@ -88,6 +89,18 @@ and to the `tradeagent/` package by `.claude/settings.json`.
 
 "Human" means a permission prompt in an interactive session, or a queued proposal (`tradeagent approve <id>`)
 in a headless one.
+
+## Hands-free inside Claude Code
+
+```
+/mode autonomous
+/autopilot
+```
+
+`/cycle` reads `uv run tradeagent clock` and does the right thing for the phase: pre-market scan + analyze,
+manage + execute while open, manage only after the 15:30 cutoff, review after the close, nothing when closed.
+`/autopilot` runs it once and then on a 30-minute loop for as long as the session is open. `/kill` stops orders
+instantly. In `approve_all` mode the loop only proposes; approvals stay with you.
 
 ## Scheduled runs
 

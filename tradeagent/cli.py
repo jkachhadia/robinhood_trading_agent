@@ -374,6 +374,54 @@ def halt(reason: Optional[str] = typer.Argument(None), clear: bool = typer.Optio
 
 
 @app.command()
+def clock():
+    """Market phase in ET plus what /cycle has already done today (for the autopilot loop)."""
+    from datetime import date
+    from . import marketclock as mc
+    levers = cfg.load_levers()
+    store = _store()
+    now = mc.now_et()
+    td = mc.trading_date(now)
+    extra = {date.fromisoformat(d) for d in levers.market.extra_holidays}
+    trading = mc.is_trading_day(td, extra)
+    phase = "closed"
+    if trading:
+        w = mc.session_window(td)
+        if now < w.open:
+            phase = "pre_market"
+        elif now >= w.close:
+            phase = "after_close"
+        elif mc.past_cutoff(levers.session.no_new_positions_after, now):
+            phase = "open_after_cutoff"
+        else:
+            phase = "open"
+    done = store.kv_get(f"cycle:{td.isoformat()}", {}) or {}
+    s = journal.state_view(store, levers)
+    out = {
+        "et_time": now.strftime("%Y-%m-%d %H:%M ET"), "trading_day": trading, "phase": phase,
+        "no_new_positions_after": levers.session.no_new_positions_after,
+        "done_today": done,
+        "open_positions": len(s.open_positions()), "max_open_positions": levers.risk.max_open_positions,
+        "free_slots": max(levers.risk.max_open_positions - len(s.open_positions()), 0),
+        "trades_today": s.trades_today, "max_trades_per_day": levers.risk.max_trades_per_day,
+        "halted": s.halted_reason, "kill_switch": levers.kill_switch, "mode": levers.mode.value, "dry_run": levers.dry_run,
+    }
+    print(json.dumps(out, indent=2, default=str))
+
+
+@app.command()
+def mark(event: str = typer.Argument(..., help="scan | scan_intraday | review | analyze:<SYMBOL>")):
+    """Record that /cycle completed a step today (scan, scan_intraday, review, analyze:SYMBOL)."""
+    from . import marketclock as mc
+    store = _store()
+    td = mc.trading_date().isoformat()
+    done = store.kv_get(f"cycle:{td}", {}) or {}
+    done[event] = journal.now_iso()
+    store.kv_set(f"cycle:{td}", done)
+    print(json.dumps(done))
+
+
+@app.command()
 def hook(event: str):
     """Hook entrypoint (used by .claude/settings.json). Reads Claude Code's JSON from stdin."""
     from .hooks import main
