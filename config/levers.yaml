@@ -1,0 +1,65 @@
+# tradeagent levers. Every order the agent tries to place is checked against these
+# by a Claude Code PreToolUse hook. The model cannot change this file's effect on a
+# running gate: it is re-read on every tool call.
+#
+# Runtime toggles below (mode, kill_switch, dry_run) can also be flipped with
+#   uv run tradeagent mode <approve_all|tiered|autonomous>
+#   uv run tradeagent kill on|off
+#   uv run tradeagent dry-run on|off
+# which write data/overrides.json (overrides win over this file).
+
+mode: approve_all            # approve_all | tiered | autonomous
+kill_switch: false           # true = deny every order-placing tool call
+dry_run: true                # paper mode: orders are denied, simulated fills are journaled
+paper_equity_usd: 10000      # equity assumed in dry_run until a real portfolio snapshot exists
+
+mcp_server_name: robinhood-trading   # name used in `claude mcp add`; tools are mcp__<name>__<tool>
+
+risk:
+  max_order_notional_usd: 500
+  max_position_pct: 10           # max single-symbol exposure as % of account equity
+  max_open_positions: 8
+  max_daily_loss_pct: 2          # equity drawdown vs day-open equity -> halt new entries for the day
+  max_weekly_loss_pct: 5         # equity drawdown vs week-open equity -> halt new entries for the week
+  risk_per_trade_pct: 0.5        # sizing: qty = equity * risk% / (entry - stop)
+  min_reward_risk: 2.0           # proposals below this are rejected at propose time
+  max_trades_per_day: 6          # opening orders per trading day
+  cooldown_minutes_same_symbol: 60
+  equity_floor_usd: 0            # halt all entries if equity drops below (0 = off)
+
+tiered:                          # only consulted when mode == tiered
+  auto_max_notional_usd: 200
+  auto_min_confidence: 0.7
+  new_symbol_requires_approval: true   # first trade in a symbol needs a human
+  options_require_approval: true
+  exits_auto_allowed: true             # risk-reducing sells never wait for approval
+
+universe:
+  allowlist: []                  # empty = any symbol; otherwise only these
+  blocklist: []                  # never trade these
+  min_price: 5
+  min_avg_dollar_volume: 5000000
+  exclude_earnings_within_days: 3      # unless the proposal is tagged earnings_play
+
+options:
+  enabled: true
+  max_premium_per_trade_usd: 300
+  max_options_exposure_pct: 10
+  dte_min: 14
+  dte_max: 90
+  max_contracts: 5
+  min_open_interest: 500
+  max_bid_ask_spread_pct: 10
+
+session:
+  allowed_hours: regular         # regular | extended | any   (ET, NYSE calendar)
+  no_new_positions_after: "15:30"
+  require_fresh_snapshot_minutes: 10   # get_portfolio must have been called this recently
+  require_review_before_place: true    # review_*_order with identical params must precede place_*
+  require_proposal_for_place: true     # every place_* must match a stored proposal
+  proposal_ttl_hours: 24
+  limit_price_tolerance_pct: 1.0       # placed limit may differ from proposal by this much
+
+market:
+  extra_holidays: []             # YYYY-MM-DD, added to the built-in NYSE holiday table
+  intraday_manage_every_minutes: 30

@@ -1,0 +1,120 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__robinhood-trading__get_*",
+      "mcp__robinhood-trading__search",
+      "mcp__robinhood-trading__review_equity_order",
+      "mcp__robinhood-trading__review_option_order",
+      "mcp__robinhood-trading__preview_crypto_order",
+      "mcp__robinhood-trading__create_watchlist",
+      "mcp__robinhood-trading__update_watchlist",
+      "mcp__robinhood-trading__follow_watchlist",
+      "mcp__robinhood-trading__unfollow_watchlist",
+      "mcp__robinhood-trading__add_to_watchlist",
+      "mcp__robinhood-trading__remove_from_watchlist",
+      "mcp__robinhood-trading__add_option_to_watchlist",
+      "mcp__robinhood-trading__remove_option_from_watchlist",
+      "mcp__robinhood-trading__create_scan",
+      "mcp__robinhood-trading__run_scan",
+      "mcp__robinhood-trading__update_scan_filters",
+      "mcp__robinhood-trading__update_scan_config",
+      "Bash(uv run tradeagent *)",
+      "Bash(./bin/tradeagent *)",
+      "Bash(bin/tradeagent *)",
+      "Read",
+      "Write(proposals/**)",
+      "Write(data/reviews/**)",
+      "Edit(proposals/**)",
+      "WebSearch",
+      "WebFetch"
+    ],
+    "deny": [
+      "mcp__robinhood-trading__place_crypto_order",
+      "Bash(uv run tradeagent dry-run off*)",
+      "Bash(./bin/tradeagent dry-run off*)",
+      "Bash(bin/tradeagent dry-run off*)",
+      "Edit(config/levers.yaml)",
+      "Write(config/levers.yaml)",
+      "Edit(data/overrides.json)",
+      "Write(data/overrides.json)",
+      "Edit(.claude/settings.json)",
+      "Write(.claude/settings.json)",
+      "Edit(.claude/hooks/**)",
+      "Write(.claude/hooks/**)",
+      "Edit(tradeagent/**)",
+      "Write(tradeagent/**)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "mcp__robinhood-trading__(place|cancel)_.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/tradeagent-hook.sh\" pre-tool-use",
+            "timeout": 30,
+            "statusMessage": "tradeagent gate"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "mcp__robinhood-trading__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/tradeagent-hook.sh\" post-tool-use",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "mcp__robinhood-trading__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/tradeagent-hook.sh\" post-tool-use-failure",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/tradeagent-hook.sh\" session-start",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/tradeagent-hook.sh\" user-prompt-submit",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/tradeagent-hook.sh\" stop",
+            "timeout": 20
+          }
+        ]
+      }
+    ]
+  }
+}

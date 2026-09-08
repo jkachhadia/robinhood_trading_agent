@@ -1,0 +1,12 @@
+#!/bin/bash
+# Convenience wrapper: runs the tradeagent CLI from the project venv.
+set -u
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+export TRADEAGENT_HOME="$ROOT"
+if [ -x "$ROOT/.venv/bin/tradeagent" ]; then
+  exec "$ROOT/.venv/bin/tradeagent" "$@"
+fi
+if command -v uv >/dev/null 2>&1; then exec uv run --project "$ROOT" tradeagent "$@"; fi
+if [ -x "$HOME/.local/bin/uv" ]; then exec "$HOME/.local/bin/uv" run --project "$ROOT" tradeagent "$@"; fi
+echo "tradeagent: run 'uv sync' in $ROOT first" >&2
+exit 1
