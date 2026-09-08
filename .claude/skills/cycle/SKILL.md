@@ -23,28 +23,32 @@ Read `phase`, `done_today`, `free_slots`, `trades_today`, `halted`, `kill_switch
 - **kill_switch true or halted** → report in one line and stop.
 - **phase = closed** (weekend/holiday) → "market closed, nothing to do" and stop.
 - **phase = pre_market**:
-  - if `scan` not in `done_today`: invoke the `cycle-research` skill with argument `scan` and wait for it.
+  - if `scan` not in `done_today`: invoke the `cycle-research` skill with argument `scan`, wait for it, then
+    **record it yourself**: `./bin/tradeagent mark scan` and `./bin/tradeagent mark analyze:<SYMBOL>` for
+    each symbol the summary says was analyzed (idempotent; do this even if the fork says it already did).
   - otherwise stop; entries wait for the open.
 - **phase = open**:
   1. Run the `/manage` procedure here (positions vs plan, exits, stale orders). Keep it lean: quotes only for
      held names, one WebSearch per position at most.
   2. Run the `/execute` procedure here for approved or auto-eligible proposals.
   3. If `free_slots` > 0 and `trades_today` < `max_trades_per_day`:
-     - if `scan` not in `done_today`: invoke `cycle-research scan`, then run `/execute` again.
+     - if `scan` not in `done_today`: invoke `cycle-research scan`, mark `scan` (and `analyze:<SYMBOL>`)
+       yourself, then run `/execute` again.
      - else if the ET time is after 13:00 and `scan_intraday` not in `done_today`: invoke
-       `cycle-research intraday`, then `/execute` again.
+       `cycle-research intraday`, mark `scan_intraday` yourself, then `/execute` again.
 - **phase = open_after_cutoff**: run the `/manage` procedure only.
 - **phase = after_close**:
-  - if `review` not in `done_today`: invoke `cycle-research review`.
+  - if `review` not in `done_today`: invoke `cycle-research review`, then `./bin/tradeagent mark review`.
   - then, if `last_trading_day_of_week` is true and `review_week` not in `done_today`: invoke
-    `cycle-research review-week`, and **renew the loop**: use `CronList` to find the recurring `/cycle`
+    `cycle-research review-week`, then `./bin/tradeagent mark review_week`, and **renew the loop**: use `CronList` to find the recurring `/cycle`
     task, create an identical new one with `CronCreate` (same cron expression, recurring), then
     `CronDelete` the old id. Claude Code expires recurring tasks after 7 days; this weekly renewal keeps
     the autopilot alive indefinitely.
   - otherwise stop.
 
 Rules for this tick: the research skill runs in its own context and returns a summary; do not repeat its
-work here. Never ask the user anything; if something needs a human (a queued proposal, an unparseable
+work here. The main session owns the `mark` calls: a fork can end early (turn limit, error) without
+recording what it finished, and an unmarked step would be re-run next tick. Never ask the user anything; if something needs a human (a queued proposal, an unparseable
 response) put it in the summary and continue. Keep this session's part of the tick under ~25 tool calls.
 
 ## Output

@@ -4,7 +4,7 @@ description: Runs the heavy research half of a trading cycle (scan, analyze with
 disallowedTools: mcp__robinhood-trading__place_equity_order, mcp__robinhood-trading__place_option_order, mcp__robinhood-trading__place_crypto_order, mcp__robinhood-trading__cancel_equity_order, mcp__robinhood-trading__cancel_option_order, mcp__robinhood-trading__cancel_crypto_order
 model: opus
 effort: high
-maxTurns: 120
+maxTurns: 250
 ---
 
 You are the research worker for the trading agent. You run inside a forked context: nothing you read here
@@ -19,6 +19,8 @@ Rules:
   account-scoped tool.
 - Launch analyst subagents (`technical-analyst`, `fundamental-analyst`, `catalyst-researcher`,
   `options-strategist`) in parallel, then `red-team`, exactly as `/analyze` describes.
+- If a candidate is analyzed and rejected, say so in the summary with the one-line reason; the main
+  session records the step. Do not write a proposal for a rejected candidate.
 - Record durable per-symbol facts with `./bin/tradeagent note SYMBOL "..."` and mark completed steps with
   `./bin/tradeagent mark <step>` as the skill instructs.
 - Keep your final message under 12 lines: what ran, candidates considered, proposals created (id, status,
