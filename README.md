@@ -145,6 +145,7 @@ cashflow <amount> | note SYM "..." | notes SYM | lessons | reviews | clock | mar
 ## Hands-free operation
 
 ```
+cd /Users/<you>/Documents/trading_agent             # exact case matters: the sandbox allow-lists this path as a string
 claude --remote-control "Trading autopilot"    # start the session so your phone can follow it
 /mode autonomous                               # or tiered: small orders auto, the rest prompt you
 /autopilot
@@ -153,7 +154,8 @@ claude --remote-control "Trading autopilot"    # start the session so your phone
 `/cycle` reads `tradeagent clock` and does the right thing for the phase: pre-market scan and analyze,
 manage and execute while open, manage only after the 15:30 ET cutoff, daily review after the close, weekly
 review on the last trading day of the week, nothing on weekends and holidays. Steps done today are recorded
-so nothing repeats. `/kill` blocks orders instantly. Keep the Mac awake (`caffeinate -i`); sleep pauses the
+so nothing repeats. `/autopilot` runs `tradeagent doctor` first and refuses to start if the path case, venv, hooks, agents or
+trust are wrong. `/kill` blocks orders instantly. Keep the Mac awake (`caffeinate -i`); sleep pauses the
 loop, wake resumes it.
 
 **From your phone** (Claude app, Remote Control): the live session, every tool call, messages you send

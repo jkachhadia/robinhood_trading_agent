@@ -5,3 +5,4 @@ __pycache__/
 .pytest_cache/
 proposals/*.json
 !proposals/.gitkeep
+.claude/settings.local.json

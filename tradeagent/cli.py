@@ -479,6 +479,93 @@ def reviews(days: int = typer.Option(7)):
 
 
 @app.command()
+def doctor():
+    """Preflight for a long-running session: path case, venv, config, hooks, agents, MCP registration."""
+    import os, subprocess
+    problems: list[str] = []
+    root = paths.project_root()
+    # 1. exact-case path (Claude Code's sandbox allow-lists the project path as an exact string)
+    def truecase(path: Path) -> Path:
+        cur = Path(path.anchor)
+        for part in path.parts[1:]:
+            try:
+                names = os.listdir(cur)
+            except OSError:
+                return path
+            match = next((n for n in names if n.lower() == part.lower()), part)
+            cur = cur / match
+        return cur
+    cwd = Path(os.environ.get("PWD") or os.getcwd())
+    tc = truecase(cwd)
+    if str(tc) != str(cwd):
+        problems.append(f"working directory case mismatch: shell says {cwd} but the folder is {tc}. "
+                        f"Start Claude Code from `cd {tc}` or the sandbox will deny file access inside the project.")
+    # 2. venv + package
+    if not (root / ".venv" / "bin" / "tradeagent").exists():
+        problems.append("no .venv/bin/tradeagent: run `uv sync`")
+    # 3. config + db
+    if not paths.config_path().exists():
+        problems.append("config/levers.yaml missing: run `uv run tradeagent init`")
+    # 4. hooks + agents + skills present
+    for rel in (".claude/settings.json", ".claude/hooks/tradeagent-hook.sh", ".mcp.json", "CLAUDE.md"):
+        if not (root / rel).exists():
+            problems.append(f"missing {rel}")
+    agents = {p.stem for p in (root / ".claude" / "agents").glob("*.md")}
+    for a in ("technical-analyst", "fundamental-analyst", "catalyst-researcher", "options-strategist", "red-team", "researcher"):
+        if a not in agents:
+            problems.append(f"agent missing: .claude/agents/{a}.md")
+    for sk in ("cycle", "cycle-research", "manage", "execute", "scan", "analyze", "review-day", "review-week"):
+        if not (root / ".claude" / "skills" / sk / "SKILL.md").exists():
+            problems.append(f"skill missing: .claude/skills/{sk}/SKILL.md")
+    # 5. hook wrapper executable and runnable
+    hook = root / ".claude" / "hooks" / "tradeagent-hook.sh"
+    if hook.exists() and not os.access(hook, os.X_OK):
+        problems.append("hook wrapper not executable: chmod +x .claude/hooks/tradeagent-hook.sh")
+    # 6. workspace trust (needed for settings hooks)
+    notes: list[str] = []
+    try:
+        cj = json.loads((Path.home() / ".claude.json").read_text())
+        projects = cj.get("projects", {})
+        keys = [k for k in projects if k.lower() == str(root).lower()]
+        proj = {}
+        for k in keys:  # merge case-variant keys; trust/approval may have been granted under either
+            for f, v in projects[k].items():
+                if f == "enabledMcpjsonServers":
+                    proj[f] = sorted(set(proj.get(f, [])) | set(v or []))
+                else:
+                    proj[f] = proj.get(f) or v
+        if len(keys) > 1:
+            notes.append(f"Claude Code has project entries under {len(keys)} case variants of this path: {keys}. "
+                         "Always start sessions from the exact-case path.")
+        if not proj.get("hasTrustDialogAccepted"):
+            problems.append("workspace trust not accepted for this folder (hooks will not run): open `claude` here once and accept")
+        enabled = set(proj.get("enabledMcpjsonServers") or [])
+        local = root / ".claude" / "settings.local.json"
+        if local.exists():
+            try:
+                enabled |= set(json.loads(local.read_text()).get("enabledMcpjsonServers") or [])
+            except json.JSONDecodeError:
+                pass
+        if cfg.load_levers().mcp_server_name not in enabled:
+            problems.append(f"project MCP server {cfg.load_levers().mcp_server_name} not approved yet (approve it when `claude` asks, then /mcp to authenticate)")
+    except Exception:
+        pass
+    # 7. levers sanity
+    levers = cfg.load_levers()
+    state = journal.state_view(_store(), levers)
+    if levers.kill_switch:
+        problems.append("kill switch is ON")
+    if not levers.dry_run and levers.mode == cfg.Mode.autonomous:
+        notes.append("autonomous mode with dry_run OFF: real orders will be placed without approval")
+    if state.equity is None and not levers.dry_run:
+        problems.append("no portfolio snapshot yet: the gate will deny live entries until get_portfolio runs")
+    out = {"project_root": str(root), "cwd": str(cwd), "mode": levers.mode.value, "dry_run": levers.dry_run,
+           "equity": state.equity, "notes": notes, "problems": problems}
+    print(json.dumps(out, indent=2, default=str))
+    raise typer.Exit(code=1 if problems else 0)
+
+
+@app.command()
 def hook(event: str):
     """Hook entrypoint (used by .claude/settings.json). Reads Claude Code's JSON from stdin."""
     from .hooks import main
