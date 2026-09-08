@@ -14,6 +14,96 @@ the model cannot bypass. Runs hands-free for weeks, or with you approving each t
 Robinhood enforces almost nothing on its side: no per-order caps, no loss limits, no kill switch, and
 "approve first" is only an instruction to the agent. This repo is where those controls live.
 
+## Architecture
+
+Three layers share one state: the SQLite journal. The conversation is scratch space; the database is the
+truth, and hooks re-inject it into every prompt.
+
+```mermaid
+flowchart TB
+    subgraph runtime["Claude Code session  (your subscription; Remote Control mirrors it to your phone)"]
+        loop["/autopilot loop<br/>fires /cycle every 30 min"]
+        cycle["/cycle  (main context)<br/>manage + execute"]
+        fork["/cycle-research  (forked context, researcher agent)<br/>scan · analyze · review-day · review-week"]
+        analysts["technical-analyst · fundamental-analyst<br/>catalyst-researcher · options-strategist · red-team<br/>(read-only subagents, parallel)"]
+        loop --> cycle
+        cycle -- "delegates, gets a 12-line summary back" --> fork
+        fork --> analysts
+    end
+
+    subgraph enforce["tradeagent  (Python, no model calls)"]
+        pre["PreToolUse gate<br/>subagent? kill switch? parse → proposal match →<br/>review match → 17 hard limits → mode"]
+        post["PostToolUse journal<br/>snapshots · positions · quotes · reviews · orders"]
+        inject["SessionStart / UserPromptSubmit / PreCompact<br/>inject state block; snapshot in-flight"]
+        cli["CLI<br/>propose · approve · mode · kill · stats · note · clock"]
+        db[("SQLite journal + levers.yaml + overrides.json<br/>playbook.md · lessons.md · reviews/")]
+        pre --- db
+        post --- db
+        inject --- db
+        cli --- db
+    end
+
+    rh["Robinhood Trading MCP<br/>agent.robinhood.com/mcp/trading<br/>(Agentic account only)"]
+
+    cycle -- "review_* / place_* / get_*" --> pre
+    pre -- "allow" --> rh
+    pre -- "deny / ask (reason)" --> cycle
+    rh -- "response" --> post
+    fork -- "get_* (read-only)" --> rh
+    fork -- "uv run tradeagent propose / note / mark" --> cli
+    cycle -- "uv run tradeagent status / plan / clock" --> cli
+    inject -- "state block on every prompt" --> cycle
+    user["You<br/>terminal or phone"] -- "approve / reject / mode / kill" --> cli
+    pre -. "ask (tiered / approve_all)" .-> user
+```
+
+Control points, in order of authority: `permissions.deny` (the model cannot edit config, hooks, mandate,
+skills, or the package), the gate on every `place_*` call, `permissions.allow` (read tools and the CLI are
+pre-approved; `place_*` is deliberately absent, so only the gate's explicit allow lets an order through),
+and the levers file, re-read on every call.
+
+One autopilot tick during market hours:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant L as /autopilot loop
+    participant M as main session (/cycle)
+    participant H as hooks (tradeagent)
+    participant DB as journal
+    participant R as researcher (fork)
+    participant RH as Robinhood MCP
+
+    L->>M: /cycle
+    H->>DB: read state
+    H-->>M: inject state block + clock + status
+    M->>RH: get_portfolio, get_*_positions, get_*_quotes
+    RH-->>H: responses
+    H->>DB: snapshot, positions, quotes (cash-flow detection)
+    M->>M: /manage: positions vs plan → exit proposals if flagged
+    M->>M: /execute: for each approved / auto-eligible proposal
+    M->>H: review_equity_order(params)
+    H->>DB: record review hash
+    M->>H: place_equity_order(same params)
+    H->>DB: proposal match, review match, limits, mode
+    alt allowed
+        H->>RH: order goes through
+        RH-->>H: broker response
+        H->>DB: order + broker id; proposal → placed
+    else denied / dry run
+        H-->>M: reason (never retry same params)
+    end
+    opt free slots and no scan yet today
+        M->>R: /cycle-research scan
+        R->>RH: scans, watchlists, historicals, fundamentals (read-only)
+        R->>R: analysts in parallel → red-team
+        R->>DB: tradeagent propose → sized proposal (auto_eligible / pending)
+        R-->>M: 12-line summary
+        M->>M: /execute again
+    end
+    M-->>L: 5-line tick report
+```
+
 ## Setup
 
 ```bash
