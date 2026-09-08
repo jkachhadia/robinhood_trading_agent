@@ -63,7 +63,7 @@ risk:      max_order_notional_usd, max_position_pct, max_open_positions, max_dai
 tiered:    auto_max_notional_usd, auto_min_confidence, new_symbol_requires_approval,
            options_require_approval, exits_auto_allowed
 universe:  allowlist, blocklist, min_price, min_avg_dollar_volume, exclude_earnings_within_days
-options:   enabled, max_premium_per_trade_usd, max_options_exposure_pct, dte_min, dte_max,
+options:   enabled, risk_per_trade_pct, max_premium_per_trade_usd, max_options_exposure_pct, dte_min, dte_max,
            max_contracts, min_open_interest, max_bid_ask_spread_pct
 session:   allowed_hours, no_new_positions_after, require_fresh_snapshot_minutes,
            require_review_before_place, require_proposal_for_place, proposal_ttl_hours,

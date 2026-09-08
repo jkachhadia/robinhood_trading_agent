@@ -45,7 +45,10 @@ def size_entry(
     fl = lambda x: _floor(x, dec)  # noqa: E731
 
     # 1. risk per trade from stop distance (or full premium for options without a stop)
-    risk_budget = equity * r.risk_per_trade_pct / 100.0
+    risk_pct = r.risk_per_trade_pct
+    if p.instrument == Instrument.option and levers.options.risk_per_trade_pct > 0:
+        risk_pct = levers.options.risk_per_trade_pct
+    risk_budget = equity * risk_pct / 100.0
     if p.risk_per_unit and p.risk_per_unit > 0:
         risk_per_unit = p.risk_per_unit * p.multiplier
     elif p.instrument == Instrument.option:

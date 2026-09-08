@@ -204,3 +204,13 @@ def test_hook_post_tool_use_records_snapshot_and_sample(env):
     row = s.one("SELECT equity FROM snapshots ORDER BY id DESC LIMIT 1")
     assert row["equity"] == 5000
     assert (env / "data" / "samples" / "get_portfolio.json").exists()
+
+
+def test_options_own_risk_budget(env):
+    lv = levers(env, **{"risk.risk_per_trade_pct": 3.0, "options.risk_per_trade_pct": 6.0, "options.max_premium_per_trade_usd": 50})
+    p = Proposal.model_validate(proposal_dict(instrument="option", option={"expiry": "2026-10-16", "strike": 10, "option_type": "call"},
+                                              limit_price=0.35, entry_price=0.35, stop_price=0.18, target_price=0.80))
+    r = size_entry(lv, p, equity=500)
+    assert r.max_qty == 1 and r.binding in ("risk_per_trade", "max_premium_per_trade")
+    lv0 = levers(env, **{"risk.risk_per_trade_pct": 3.0, "options.risk_per_trade_pct": 0})
+    assert size_entry(lv0, p, equity=500).max_qty == 0

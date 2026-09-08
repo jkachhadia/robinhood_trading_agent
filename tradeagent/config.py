@@ -69,6 +69,7 @@ class UniverseLevers(BaseModel):
 
 class OptionsLevers(BaseModel):
     enabled: bool = True
+    risk_per_trade_pct: float = 0        # options-specific risk budget; 0 = use risk.risk_per_trade_pct
     max_premium_per_trade_usd: float = 300
     max_options_exposure_pct: float = 10
     dte_min: int = 14
@@ -208,6 +209,7 @@ universe:
 
 options:
   enabled: true
+  risk_per_trade_pct: 0          # options-specific risk budget (% of equity); 0 = same as risk.risk_per_trade_pct
   max_premium_per_trade_usd: 300
   max_options_exposure_pct: 10
   dte_min: 14

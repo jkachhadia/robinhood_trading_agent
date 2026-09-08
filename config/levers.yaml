@@ -46,6 +46,7 @@ universe:
 
 options:
   enabled: true
+  risk_per_trade_pct: 6          # options-specific risk budget (% of equity); 0 = same as risk.risk_per_trade_pct
   max_premium_per_trade_usd: 50
   max_options_exposure_pct: 20
   dte_min: 21
