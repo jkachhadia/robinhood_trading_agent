@@ -45,12 +45,12 @@ universe:
   exclude_earnings_within_days: 3      # unless the proposal is tagged earnings_play
 
 options:
-  enabled: false
+  enabled: true
   max_premium_per_trade_usd: 50
-  max_options_exposure_pct: 10
-  dte_min: 14
-  dte_max: 90
-  max_contracts: 5
+  max_options_exposure_pct: 20
+  dte_min: 21
+  dte_max: 60
+  max_contracts: 2
   min_open_interest: 500
   max_bid_ask_spread_pct: 10
 
