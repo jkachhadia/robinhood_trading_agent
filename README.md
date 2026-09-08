@@ -21,7 +21,7 @@ truth, and hooks re-inject it into every prompt.
 
 ```mermaid
 flowchart TB
-    subgraph runtime["Claude Code session  (your subscription; Remote Control mirrors it to your phone)"]
+    subgraph runtime["Claude Code session  (your subscription, Remote Control mirrors it to your phone)"]
         loop["/autopilot loop<br/>fires /cycle every 30 min"]
         cycle["/cycle  (main context)<br/>manage + execute"]
         fork["/cycle-research  (forked context, researcher agent)<br/>scan · analyze · review-day · review-week"]
@@ -34,7 +34,7 @@ flowchart TB
     subgraph enforce["tradeagent  (Python, no model calls)"]
         pre["PreToolUse gate<br/>subagent? kill switch? parse → proposal match →<br/>review match → 17 hard limits → mode"]
         post["PostToolUse journal<br/>snapshots · positions · quotes · reviews · orders"]
-        inject["SessionStart / UserPromptSubmit / PreCompact<br/>inject state block; snapshot in-flight"]
+        inject["SessionStart / UserPromptSubmit / PreCompact<br/>inject state block, snapshot in-flight"]
         cli["CLI<br/>propose · approve · mode · kill · stats · note · clock"]
         db[("SQLite journal + levers.yaml + overrides.json<br/>playbook.md · lessons.md · reviews/")]
         pre --- db
@@ -89,7 +89,7 @@ sequenceDiagram
     alt allowed
         H->>RH: order goes through
         RH-->>H: broker response
-        H->>DB: order + broker id; proposal → placed
+        H->>DB: order + broker id, proposal → placed
     else denied / dry run
         H-->>M: reason (never retry same params)
     end
