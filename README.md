@@ -146,6 +146,7 @@ cashflow <amount> | note SYM "..." | notes SYM | lessons | reviews | clock | mar
 
 ```
 cd /Users/<you>/Documents/trading_agent             # exact case matters: the sandbox allow-lists this path as a string
+ulimit -n 65536                                # macOS default of 256 open files is too low for Remote Control
 claude --remote-control "Trading autopilot"    # start the session so your phone can follow it
 /mode autonomous                               # or tiered: small orders auto, the rest prompt you
 /autopilot

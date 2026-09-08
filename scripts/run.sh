@@ -20,6 +20,7 @@ export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 export TRADEAGENT_HOME="$ROOT"
 export TRADEAGENT_HEADLESS=1
 export TRADEAGENT_RUN_KIND="$SKILL"
+ulimit -n 65536 2>/dev/null || true   # Claude Code needs more than the macOS default of 256 open files
 
 LOGDIR="$ROOT/data/runs"
 mkdir -p "$LOGDIR"
